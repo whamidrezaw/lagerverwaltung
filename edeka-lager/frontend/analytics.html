@@ -1,0 +1,1138 @@
+<!DOCTYPE html>
+<html lang="de" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EDEKA Lagerverwaltung — Verbrauchsanalyse</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+/* ── TOKENS ─────────────────────────────────────── */
+:root {
+  --edeka-yellow: #f2c300;
+  --edeka-yellow-dark: #d4aa00;
+  --edeka-red: #e2001a;
+  --edeka-dark: #1a1a1a;
+  --color-bg: #f5f4f0;
+  --color-surface: #ffffff;
+  --color-surface-2: #fafaf8;
+  --color-surface-offset: #f0efe9;
+  --color-border: rgba(0,0,0,0.09);
+  --color-divider: rgba(0,0,0,0.06);
+  --color-text: #1c1b18;
+  --color-text-muted: #6b6a66;
+  --color-text-faint: #b0afa9;
+  --color-text-inverse: #ffffff;
+  --color-success: #2e7d32;
+  --color-success-bg: #e8f5e9;
+  --color-warning: #e65100;
+  --color-warning-bg: #fff3e0;
+  --color-error: #c62828;
+  --color-error-bg: #ffebee;
+  --color-primary: #e2001a;
+  --color-primary-hover: #c2001a;
+  --color-primary-hl: #ffe8ea;
+  --radius-sm: 6px; --radius-md: 10px;
+  --radius-lg: 14px; --radius-xl: 20px; --radius-full: 9999px;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.07);
+  --shadow-md: 0 4px 14px rgba(0,0,0,0.09);
+  --shadow-lg: 0 12px 40px rgba(0,0,0,0.12);
+  --transition: 170ms cubic-bezier(0.16,1,0.3,1);
+  --font: 'Inter', system-ui, sans-serif;
+  --sidebar-w: 240px;
+}
+[data-theme="dark"] {
+  --color-bg: #141412;
+  --color-surface: #1c1c1a;
+  --color-surface-2: #222220;
+  --color-surface-offset: #1a1a18;
+  --color-border: rgba(255,255,255,0.07);
+  --color-divider: rgba(255,255,255,0.04);
+  --color-text: #e4e3df;
+  --color-text-muted: #7a7974;
+  --color-text-faint: #4a4a46;
+  --color-success: #66bb6a;
+  --color-success-bg: #1a2e1a;
+  --color-warning: #ffa726;
+  --color-warning-bg: #2a1e0a;
+  --color-error: #ef5350;
+  --color-error-bg: #2a1010;
+  --color-primary: #ff4d4d;
+  --color-primary-hover: #e62020;
+  --color-primary-hl: #2a1010;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
+  --shadow-md: 0 4px 14px rgba(0,0,0,0.4);
+  --shadow-lg: 0 12px 40px rgba(0,0,0,0.5);
+}
+
+/* ── BASE ───────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { height: 100%; -webkit-font-smoothing: antialiased; overflow: hidden; }
+body { height: 100dvh; font-family: var(--font); background: var(--color-bg); color: var(--color-text); display: flex; overflow: hidden; }
+button { cursor: pointer; font: inherit; border: none; background: none; color: inherit; }
+input, select { font: inherit; color: inherit; }
+a { text-decoration: none; color: inherit; }
+:focus-visible { outline: 2px solid var(--edeka-yellow); outline-offset: 2px; border-radius: var(--radius-sm); }
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-surface-offset); border-radius: 10px; }
+
+/* ── SIDEBAR ─────────────────────────────────────── */
+.sidebar {
+  width: var(--sidebar-w);
+  height: 100dvh;
+  background: var(--edeka-dark);
+  display: flex; flex-direction: column;
+  flex-shrink: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.sidebar-header {
+  padding: 20px 18px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  display: flex; align-items: center; gap: 12px;
+}
+.sidebar-logo-mark {
+  width: 36px; height: 36px;
+  background: var(--edeka-yellow);
+  border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; flex-shrink: 0;
+}
+.sidebar-logo-text { line-height: 1.2; }
+.sidebar-app-name { font-size: 14px; font-weight: 700; color: #fff; }
+.sidebar-app-sub { font-size: 10px; color: var(--edeka-yellow); text-transform: uppercase; letter-spacing: 0.07em; }
+.nav-section-title {
+  font-size: 10px; font-weight: 600;
+  color: rgba(255,255,255,0.3);
+  text-transform: uppercase; letter-spacing: 0.08em;
+  padding: 16px 18px 6px;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 18px;
+  font-size: 13px; font-weight: 500;
+  color: rgba(255,255,255,0.55);
+  cursor: pointer;
+  transition: all var(--transition);
+  border-right: 2px solid transparent;
+}
+.nav-item:hover { color: rgba(255,255,255,0.9); background: rgba(255,255,255,0.05); }
+.nav-item.active {
+  color: #fff;
+  background: rgba(242,195,0,0.1);
+  border-right-color: var(--edeka-yellow);
+  font-weight: 600;
+}
+.nav-icon { font-size: 15px; width: 20px; text-align: center; flex-shrink: 0; }
+.nav-badge {
+  margin-left: auto;
+  background: var(--edeka-red);
+  color: white; font-size: 10px; font-weight: 700;
+  padding: 2px 6px; border-radius: var(--radius-full);
+}
+.sidebar-footer {
+  margin-top: auto;
+  padding: 14px 18px;
+  border-top: 1px solid rgba(255,255,255,0.07);
+}
+.user-card {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px;
+  background: rgba(255,255,255,0.05);
+  border-radius: var(--radius-md);
+}
+.user-avatar {
+  width: 32px; height: 32px;
+  background: var(--edeka-yellow);
+  border-radius: var(--radius-full);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700;
+  color: var(--edeka-dark); flex-shrink: 0;
+}
+.user-info { flex: 1; min-width: 0; }
+.user-name { font-size: 12px; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.user-role { font-size: 10px; color: rgba(255,255,255,0.4); text-transform: capitalize; }
+.logout-btn { color: rgba(255,255,255,0.3); font-size: 14px; padding: 4px; border-radius: var(--radius-sm); transition: color var(--transition); }
+.logout-btn:hover { color: var(--edeka-red); }
+
+/* ── MAIN AREA ───────────────────────────────────── */
+.main-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+
+/* ── TOPBAR ──────────────────────────────────────── */
+.topbar {
+  height: 56px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 24px;
+  flex-shrink: 0;
+  box-shadow: var(--shadow-sm);
+}
+.topbar-left { display: flex; align-items: center; gap: 12px; }
+.topbar-title { font-size: 16px; font-weight: 700; }
+.topbar-date { font-size: 12px; color: var(--color-text-muted); }
+.topbar-right { display: flex; align-items: center; gap: 10px; }
+
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px;
+  border-radius: var(--radius-md);
+  font-size: 13px; font-weight: 500;
+  transition: all var(--transition); cursor: pointer;
+  border: none;
+}
+.btn-ghost {
+  background: transparent; color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+}
+.btn-ghost:hover { background: var(--color-surface-offset); color: var(--color-text); }
+.btn-yellow { background: var(--edeka-yellow); color: var(--edeka-dark); font-weight: 600; }
+.btn-yellow:hover { background: var(--edeka-yellow-dark); }
+.icon-btn {
+  width: 34px; height: 34px;
+  border-radius: var(--radius-md);
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted); font-size: 14px;
+  transition: all var(--transition);
+}
+.icon-btn:hover { background: var(--color-surface-offset); color: var(--color-text); }
+
+/* ── CONTENT ─────────────────────────────────────── */
+.content { flex: 1; overflow-y: auto; padding: 20px 24px; background: var(--color-bg); }
+
+/* ── KPI CARDS ───────────────────────────────────── */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.kpi-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 16px 18px;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow var(--transition);
+}
+.kpi-card:hover { box-shadow: var(--shadow-md); }
+.kpi-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.kpi-label { font-size: 12px; font-weight: 500; color: var(--color-text-muted); }
+.kpi-icon {
+  width: 32px; height: 32px;
+  border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px;
+}
+.kpi-val { font-size: 26px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; margin-bottom: 4px; }
+.kpi-delta { font-size: 11px; color: var(--color-text-muted); }
+.kpi-delta .up { color: var(--color-success); }
+.kpi-delta .down { color: var(--color-error); }
+
+/* ── FILTER BAR ──────────────────────────────────── */
+.filter-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; margin-bottom: 16px; flex-wrap: wrap;
+}
+.filter-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.filter-tab {
+  padding: 5px 14px;
+  border-radius: var(--radius-full);
+  font-size: 12px; font-weight: 500;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  cursor: pointer; transition: all var(--transition);
+}
+.filter-tab:hover { background: var(--color-surface-offset); color: var(--color-text); }
+.filter-tab.active { background: var(--edeka-dark); color: #fff; border-color: var(--edeka-dark); }
+[data-theme="dark"] .filter-tab.active { background: var(--edeka-yellow); color: var(--edeka-dark); border-color: var(--edeka-yellow); }
+.filter-right { display: flex; align-items: center; gap: 8px; }
+.search-wrap { position: relative; }
+.search-wrap::before { content: "🔍"; position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 12px; pointer-events: none; }
+.search-input {
+  padding: 7px 12px 7px 34px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  color: var(--color-text);
+  width: 200px;
+  transition: all var(--transition);
+}
+.search-input:focus { outline: none; border-color: var(--edeka-yellow); box-shadow: 0 0 0 3px rgba(242,195,0,0.15); }
+.search-input::placeholder { color: var(--color-text-faint); }
+.form-ctrl {
+  padding: 7px 10px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: 13px; color: var(--color-text);
+  transition: all var(--transition);
+}
+.form-ctrl:focus { outline: none; border-color: var(--edeka-yellow); }
+
+/* ── CHART SECTION ───────────────────────────────── */
+.chart-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.chart-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  box-shadow: var(--shadow-sm);
+}
+.chart-card-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 16px;
+}
+.chart-card-title { font-size: 14px; font-weight: 700; }
+.chart-card-sub { font-size: 11px; color: var(--color-text-muted); margin-top: 2px; }
+.chart-wrap { position: relative; }
+.chart-wrap canvas { max-height: 260px; }
+
+/* ── TOP PRODUCTS ────────────────────────────────── */
+.top-list { display: flex; flex-direction: column; gap: 10px; }
+.top-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px;
+  background: var(--color-surface-2);
+  border-radius: var(--radius-md);
+  transition: background var(--transition);
+}
+.top-item:hover { background: var(--color-surface-offset); }
+.top-rank {
+  width: 22px; height: 22px; border-radius: var(--radius-full);
+  background: var(--color-surface-offset);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+.top-rank.gold { background: #fff8e1; color: #b8860b; }
+.top-rank.silver { background: #f5f5f5; color: #757575; }
+.top-rank.bronze { background: #fbe9e7; color: #bf360c; }
+.top-emoji {
+  width: 32px; height: 32px; border-radius: var(--radius-sm);
+  background: var(--color-surface-offset);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; flex-shrink: 0;
+}
+.top-info { flex: 1; min-width: 0; }
+.top-name { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.top-cat { font-size: 10px; color: var(--color-text-muted); }
+.top-bar-wrap { width: 80px; }
+.top-bar { height: 4px; background: var(--color-surface-offset); border-radius: var(--radius-full); overflow: hidden; margin-bottom: 3px; }
+.top-bar-fill { height: 100%; border-radius: var(--radius-full); background: var(--edeka-red); transition: width 0.6s ease; }
+.top-val { font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; }
+
+/* ── TABLE ───────────────────────────────────────── */
+.table-wrap {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 20px;
+}
+.table-header-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px 12px;
+  border-bottom: 1px solid var(--color-divider);
+}
+.table-title { font-size: 14px; font-weight: 700; }
+.table-meta { font-size: 12px; color: var(--color-text-muted); }
+table { width: 100%; border-collapse: collapse; }
+thead { background: var(--color-surface-offset); }
+th {
+  padding: 10px 14px;
+  text-align: left;
+  font-size: 11px; font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase; letter-spacing: 0.06em;
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+  cursor: pointer; user-select: none;
+}
+th:hover { color: var(--color-text); }
+th .sort-icon { font-size: 9px; margin-left: 4px; opacity: 0.4; }
+th.sorted .sort-icon { opacity: 1; color: var(--edeka-red); }
+td {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--color-divider);
+  vertical-align: middle;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+tbody tr { transition: background var(--transition); }
+tbody tr:hover { background: var(--color-surface-offset); }
+tbody tr:last-child td { border-bottom: none; }
+.product-cell { display: flex; align-items: center; gap: 10px; }
+.product-emoji {
+  width: 34px; height: 34px;
+  background: var(--color-surface-offset);
+  border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; flex-shrink: 0;
+}
+.product-name { font-weight: 600; font-size: 13px; }
+.product-cat { font-size: 11px; color: var(--color-text-muted); margin-top: 1px; }
+.trend-cell { display: flex; align-items: center; gap: 6px; }
+.trend-bar-wrap { flex: 1; min-width: 60px; max-width: 120px; }
+.trend-bar { height: 5px; background: var(--color-surface-offset); border-radius: var(--radius-full); overflow: hidden; }
+.trend-fill { height: 100%; border-radius: var(--radius-full); transition: width 0.5s ease; }
+.fill-high { background: var(--color-error); }
+.fill-mid { background: var(--color-warning); }
+.fill-ok { background: var(--color-success); }
+.badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 9px;
+  border-radius: var(--radius-full);
+  font-size: 11px; font-weight: 600;
+}
+.badge-ok { background: var(--color-success-bg); color: var(--color-success); }
+.badge-low { background: var(--color-warning-bg); color: var(--color-warning); }
+.badge-critical { background: var(--color-error-bg); color: var(--color-error); }
+.badge-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+.delta-up { color: var(--color-success); font-size: 12px; font-weight: 600; }
+.delta-down { color: var(--color-error); font-size: 12px; font-weight: 600; }
+.delta-flat { color: var(--color-text-faint); font-size: 12px; }
+
+/* ── EMPTY STATE ─────────────────────────────────── */
+.empty-state {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 48px 24px; text-align: center;
+}
+.empty-icon { font-size: 40px; margin-bottom: 12px; }
+.empty-title { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+.empty-desc { font-size: 13px; color: var(--color-text-muted); max-width: 28ch; }
+
+/* ── SKELETON ────────────────────────────────────── */
+.skeleton {
+  background: linear-gradient(90deg, var(--color-surface-offset) 25%, var(--color-surface-2) 50%, var(--color-surface-offset) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+}
+@keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+
+/* ── TOAST ───────────────────────────────────────── */
+.toast-wrap { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 200; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.toast {
+  background: var(--edeka-dark); color: white;
+  padding: 10px 18px; border-radius: var(--radius-full);
+  font-size: 13px; font-weight: 500;
+  box-shadow: var(--shadow-lg);
+  animation: toastIn 0.25s ease;
+  max-width: 320px; text-align: center;
+}
+[data-theme="dark"] .toast { background: var(--color-surface); border: 1px solid var(--color-border); }
+@keyframes toastIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ── DETAIL DRAWER ───────────────────────────────── */
+.drawer {
+  position: fixed; right: 0; top: 0; bottom: 0; width: 400px;
+  background: var(--color-surface);
+  border-left: 1px solid var(--color-border);
+  box-shadow: var(--shadow-lg);
+  z-index: 200;
+  transform: translateX(100%);
+  transition: transform var(--transition);
+  display: flex; flex-direction: column;
+}
+.drawer.open { transform: translateX(0); }
+.drawer-header {
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--color-divider);
+  display: flex; align-items: center; gap: 12px;
+}
+.drawer-body { flex: 1; overflow-y: auto; padding: 16px 20px; }
+.drawer-section { margin-bottom: 20px; }
+.drawer-section-title { font-size: 11px; font-weight: 600; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
+.drawer-stat-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--color-divider); }
+.drawer-stat-row:last-child { border-bottom: none; }
+.drawer-stat-label { font-size: 12px; color: var(--color-text-muted); }
+.drawer-stat-val { font-size: 13px; font-weight: 700; }
+.drawer-chart-wrap { position: relative; }
+.drawer-chart-wrap canvas { max-height: 180px; }
+
+/* ── RESPONSIVE ─────────────────────────────────── */
+@media (max-width: 1100px) {
+  .chart-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 900px) {
+  .sidebar { position: fixed; left: 0; z-index: 50; transform: translateX(-100%); transition: transform var(--transition); }
+  .sidebar.open { transform: translateX(0); }
+  .kpi-grid { grid-template-columns: 1fr 1fr; }
+  th:nth-child(5), td:nth-child(5),
+  th:nth-child(6), td:nth-child(6) { display: none; }
+  .drawer { width: 100%; }
+}
+</style>
+</head>
+<body>
+
+<!-- ── SIDEBAR ── -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <div class="sidebar-logo-mark">🛒</div>
+    <div class="sidebar-logo-text">
+      <div class="sidebar-app-name">EDEKA Lager</div>
+      <div class="sidebar-app-sub">Wir lieben Lebensmittel</div>
+    </div>
+  </div>
+  <div class="nav-section-title">Hauptmenü</div>
+  <a class="nav-item" href="/dashboard.html"><span class="nav-icon">📦</span> Bestandsübersicht</a>
+  <a class="nav-item active" href="/analytics.html"><span class="nav-icon">📊</span> Verbrauchsanalyse</a>
+  <a class="nav-item" href="/orders.html"><span class="nav-icon">🛒</span> Bestellvorschläge<span class="nav-badge" id="order-badge">0</span></a>
+  <a class="nav-item" href="/reports.html"><span class="nav-icon">📅</span> Tagesberichte</a>
+  <div class="nav-section-title">Verwaltung</div>
+  <a class="nav-item" href="/dashboard.html"><span class="nav-icon">📸</span> Tages-Snapshot</a>
+  <div class="nav-item" onclick="sendTelegramReport()"><span class="nav-icon">📱</span> Telegram-Bericht</div>
+  <a class="nav-item" href="/users.html"><span class="nav-icon">👥</span> Benutzerverwaltung</a>
+  <div class="sidebar-footer">
+    <div class="user-card">
+      <div class="user-avatar" id="user-avatar">A</div>
+      <div class="user-info">
+        <div class="user-name" id="user-name-display">Administrator</div>
+        <div class="user-role" id="user-role-display">admin</div>
+      </div>
+      <button class="logout-btn" onclick="logout()" title="Abmelden">⏻</button>
+    </div>
+  </div>
+</aside>
+
+<!-- ── MAIN ── -->
+<div class="main-area">
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="topbar-title">📊 Verbrauchsanalyse</div>
+      <div class="topbar-date" id="topbar-date"></div>
+    </div>
+    <div class="topbar-right">
+      <button class="btn btn-ghost" onclick="exportCSV()">⬇ Export CSV</button>
+      <button class="btn btn-yellow" onclick="loadData()">↻ Aktualisieren</button>
+      <button class="icon-btn" id="theme-toggle" title="Dark Mode">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="content" id="main-content">
+    <!-- KPI -->
+    <div class="kpi-grid" id="kpi-grid">
+      <div class="kpi-card"><div class="kpi-top"><span class="kpi-label">Gesamtverbrauch</span><div class="kpi-icon" style="background:#fff8e1">📦</div></div><div class="kpi-val" id="kpi-total">—</div><div class="kpi-delta" id="kpi-total-d">Zeitraum gesamt</div></div>
+      <div class="kpi-card"><div class="kpi-top"><span class="kpi-label">Ø Täglich</span><div class="kpi-icon" style="background:#e8f5e9">📅</div></div><div class="kpi-val" id="kpi-avg">—</div><div class="kpi-delta" id="kpi-avg-d">Einheiten/Tag</div></div>
+      <div class="kpi-card"><div class="kpi-top"><span class="kpi-label">Top Produkt</span><div class="kpi-icon" style="background:#fce4ec">🏆</div></div><div class="kpi-val" id="kpi-top" style="font-size:16px;padding-top:4px">—</div><div class="kpi-delta" id="kpi-top-d">Meist verbraucht</div></div>
+      <div class="kpi-card"><div class="kpi-top"><span class="kpi-label">Kritische Artikel</span><div class="kpi-icon" style="background:#ffebee">⚠️</div></div><div class="kpi-val" id="kpi-critical" style="color:var(--color-error)">—</div><div class="kpi-delta" id="kpi-critical-d">Unter Mindestbestand</div></div>
+    </div>
+
+    <!-- FILTER -->
+    <div class="filter-bar">
+      <div class="filter-tabs" id="period-tabs">
+        <button class="filter-tab active" data-period="7">7 Tage</button>
+        <button class="filter-tab" data-period="14">14 Tage</button>
+        <button class="filter-tab" data-period="30">30 Tage</button>
+        <button class="filter-tab" data-period="90">90 Tage</button>
+      </div>
+      <div class="filter-right">
+        <select class="form-ctrl" id="cat-filter" onchange="applyFilters()">
+          <option value="">Alle Kategorien</option>
+        </select>
+        <div class="search-wrap">
+          <input class="search-input" type="search" id="search-input" placeholder="Produkt suchen…" oninput="applyFilters()">
+        </div>
+      </div>
+    </div>
+
+    <!-- CHARTS -->
+    <div class="chart-grid">
+      <div class="chart-card">
+        <div class="chart-card-head">
+          <div>
+            <div class="chart-card-title">Verbrauchsverlauf</div>
+            <div class="chart-card-sub" id="chart-sub">Täglicher Verbrauch im gewählten Zeitraum</div>
+          </div>
+          <div style="display:flex;gap:6px">
+            <button class="filter-tab active" data-view="daily" id="view-daily" style="font-size:11px;padding:4px 10px">Täglich</button>
+            <button class="filter-tab" data-view="weekly" id="view-weekly" style="font-size:11px;padding:4px 10px">Wöchentlich</button>
+          </div>
+        </div>
+        <div class="chart-wrap"><canvas id="consumption-chart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-head">
+          <div>
+            <div class="chart-card-title">Top 5 Produkte</div>
+            <div class="chart-card-sub">Meist verbraucht</div>
+          </div>
+        </div>
+        <div id="top-products-list" class="top-list"></div>
+      </div>
+    </div>
+
+    <!-- TABLE -->
+    <div class="table-wrap">
+      <div class="table-header-row">
+        <div class="table-title">📋 Verbrauchsdetails</div>
+        <div class="table-meta" id="table-meta">Wird geladen…</div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th onclick="sortTable('name')">Produkt <span class="sort-icon" id="sort-name">↕</span></th>
+            <th onclick="sortTable('category')">Kategorie <span class="sort-icon" id="sort-category">↕</span></th>
+            <th onclick="sortTable('consumed')">Verbrauch <span class="sort-icon" id="sort-consumed">↕</span></th>
+            <th onclick="sortTable('avgDaily')">Ø/Tag <span class="sort-icon" id="sort-avgDaily">↕</span></th>
+            <th>Trend</th>
+            <th onclick="sortTable('stock')">Bestand <span class="sort-icon" id="sort-stock">↕</span></th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="analytics-tbody">
+          <tr><td colspan="8" style="text-align:center;padding:32px;color:var(--color-text-muted)">Wird geladen…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ── DETAIL DRAWER ── -->
+<div class="drawer" id="detail-drawer">
+  <div class="drawer-header">
+    <div id="drawer-emoji" style="font-size:28px"></div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:15px;font-weight:700" id="drawer-name">—</div>
+      <div style="font-size:11px;color:var(--color-text-muted)" id="drawer-cat">—</div>
+    </div>
+    <button class="icon-btn" onclick="closeDrawer()">✕</button>
+  </div>
+  <div class="drawer-body">
+    <div class="drawer-section">
+      <div class="drawer-section-title">📊 Statistik</div>
+      <div class="drawer-stat-row"><span class="drawer-stat-label">Verbrauch (Zeitraum)</span><span class="drawer-stat-val" id="d-consumed">—</span></div>
+      <div class="drawer-stat-row"><span class="drawer-stat-label">Ø Täglich</span><span class="drawer-stat-val" id="d-avg">—</span></div>
+      <div class="drawer-stat-row"><span class="drawer-stat-label">Aktueller Bestand</span><span class="drawer-stat-val" id="d-stock">—</span></div>
+      <div class="drawer-stat-row"><span class="drawer-stat-label">Mindestbestand</span><span class="drawer-stat-val" id="d-min">—</span></div>
+      <div class="drawer-stat-row"><span class="drawer-stat-label">Reichweite</span><span class="drawer-stat-val" id="d-days">—</span></div>
+    </div>
+    <div class="drawer-section">
+      <div class="drawer-section-title">📈 Verbrauchsverlauf</div>
+      <div class="drawer-chart-wrap"><canvas id="drawer-chart"></canvas></div>
+    </div>
+    <div class="drawer-section">
+      <div class="drawer-section-title">📝 Letzte Einträge</div>
+      <div id="drawer-logs" style="display:flex;flex-direction:column;gap:6px"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toast-wrap"></div>
+
+<script>
+/* ── STATE ── */
+let allProducts = [];
+let filteredProducts = [];
+let currentPeriod = 7;
+let currentView = 'daily';
+let sortKey = 'consumed';
+let sortDir = -1;
+let consumptionChart = null;
+let drawerChart = null;
+
+/* ── AUTH / INIT ── */
+function getToken() {
+  return sessionStorage.getItem('token') || localStorage.getItem('token');
+}
+function getUser() {
+  try {
+    const raw = sessionStorage.getItem('user') || localStorage.getItem('user');
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+function logout() {
+  ['token','user'].forEach(k => { sessionStorage.removeItem(k); localStorage.removeItem(k); });
+  window.location.href = '/index.html';
+}
+async function api(url, method='GET', body=null) {
+  const token = getToken();
+  if (!token) { window.location.href = '/index.html'; throw new Error('Nicht authentifiziert'); }
+  const opts = { method, headers: { 'Content-Type': 'application/json', Authorization: 'Bearer '+token } };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(url, opts);
+  if (res.status === 401) { logout(); throw new Error('Session abgelaufen'); }
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || 'Fehler'); }
+  return res.json();
+}
+
+/* ── DATE HELPERS ── */
+function fmtDate(d) { if (!d) return '—'; return new Date(d).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'}); }
+function fmtShort(d) { if (!d) return '—'; return new Date(d).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'}); }
+function fmtRelative(d) {
+  if (!d) return '—';
+  const diff = Date.now() - new Date(d), min = Math.floor(diff/60000), hr = Math.floor(min/60), day = Math.floor(hr/24);
+  if (min < 2) return 'Gerade eben'; if (min < 60) return 'vor '+min+' Min.'; if (hr < 24) return 'vor '+hr+' Std.'; if (day < 7) return 'vor '+day+' Tag(en)'; return fmtDate(d);
+}
+function getDaysAgo(n) { const d = new Date(); d.setDate(d.getDate() - n); d.setHours(0,0,0,0); return d; }
+
+/* ── LOAD DATA ── */
+async function loadData() {
+  try {
+    const [products, history] = await Promise.all([
+      api('/api/products'),
+      api('/api/history?days=' + currentPeriod)
+    ]);
+    processData(products, history);
+  } catch(e) {
+    // Fallback: nur Produkte laden und synthetische History aufbauen
+    try {
+      const products = await api('/api/products');
+      processData(products, []);
+    } catch(err) {
+      showToast('⚠️ Fehler beim Laden: ' + err.message);
+      document.getElementById('analytics-tbody').innerHTML = '<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">📭</div><div class="empty-title">Keine Daten</div><div class="empty-desc">Verbindung zum Server fehlgeschlagen.</div></div></td></tr>';
+    }
+  }
+}
+
+function processData(products, history) {
+  const cutoff = getDaysAgo(currentPeriod);
+
+  // Berechne Verbrauch pro Produkt aus History
+  const consumptionMap = {};
+  const dailyMap = {}; // date -> total
+
+  (history || []).forEach(entry => {
+    const ts = new Date(entry.timestamp || entry.date || entry.createdAt);
+    if (ts < cutoff) return;
+    const pid = entry.productId || entry.product?._id || entry.product;
+    const qty = Math.abs(entry.quantity || entry.change || 0);
+    if (!pid) return;
+    if (!consumptionMap[pid]) consumptionMap[pid] = { total: 0, logs: [] };
+    consumptionMap[pid].total += qty;
+    consumptionMap[pid].logs.push({ date: ts, qty, note: entry.note || '' });
+
+    const dk = ts.toISOString().slice(0,10);
+    dailyMap[dk] = (dailyMap[dk]||0) + qty;
+  });
+
+  // Wenn keine History-API vorhanden, aus Produkt-Snapshots schätzen
+  if (!history || history.length === 0) {
+    products.forEach(p => {
+      const consumed = p.consumed || p.verbrauch || 0;
+      consumptionMap[p._id] = { total: consumed, logs: [] };
+    });
+  }
+
+  allProducts = products.map(p => {
+    const cdata = consumptionMap[p._id] || { total: 0, logs: [] };
+    const consumed = cdata.total;
+    const avgDaily = consumed / Math.max(currentPeriod, 1);
+    const stock = p.quantity || p.stock || p.menge || 0;
+    const minStock = p.minQuantity || p.minStock || p.mindestbestand || 0;
+    const daysLeft = avgDaily > 0 ? Math.floor(stock / avgDaily) : null;
+    return {
+      _id: p._id,
+      name: p.name,
+      category: p.category || p.kategorie || 'Sonstige',
+      emoji: p.emoji || '📦',
+      consumed, avgDaily,
+      stock, minStock, daysLeft,
+      logs: cdata.logs,
+      unit: p.unit || p.einheit || 'Stk',
+    };
+  });
+
+  buildCategoryFilter();
+  applyFilters();
+  buildKPIs(dailyMap);
+  renderChart(dailyMap);
+}
+
+function buildCategoryFilter() {
+  const cats = [...new Set(allProducts.map(p => p.category))].sort();
+  const sel = document.getElementById('cat-filter');
+  const current = sel.value;
+  sel.innerHTML = '<option value="">Alle Kategorien</option>' + cats.map(c => `<option value="${c}"${c===current?' selected':''}>${c}</option>`).join('');
+}
+
+function applyFilters() {
+  const q = document.getElementById('search-input').value.toLowerCase().trim();
+  const cat = document.getElementById('cat-filter').value;
+  filteredProducts = allProducts.filter(p => {
+    if (cat && p.category !== cat) return false;
+    if (q && !p.name.toLowerCase().includes(q) && !p.category.toLowerCase().includes(q)) return false;
+    return true;
+  });
+  sortAndRender();
+}
+
+function sortTable(key) {
+  if (sortKey === key) sortDir *= -1;
+  else { sortKey = key; sortDir = key === 'name' || key === 'category' ? 1 : -1; }
+  document.querySelectorAll('th .sort-icon').forEach(el => el.textContent = '↕');
+  const el = document.getElementById('sort-'+key);
+  if (el) el.textContent = sortDir === 1 ? '↑' : '↓';
+  document.querySelectorAll('th').forEach(th => th.classList.remove('sorted'));
+  const ths = document.querySelectorAll('th');
+  ths.forEach(th => { if (th.getAttribute('onclick') === `sortTable('${key}')`) th.classList.add('sorted'); });
+  sortAndRender();
+}
+
+function sortAndRender() {
+  const sorted = [...filteredProducts].sort((a,b) => {
+    const av = a[sortKey], bv = b[sortKey];
+    if (typeof av === 'string') return sortDir * av.localeCompare(bv, 'de');
+    return sortDir * ((av||0) - (bv||0));
+  });
+  renderTable(sorted);
+  renderTopProducts(sorted);
+}
+
+/* ── KPIs ── */
+function buildKPIs(dailyMap) {
+  const total = allProducts.reduce((s,p) => s+p.consumed, 0);
+  const avg = total / Math.max(currentPeriod,1);
+  const top = [...allProducts].sort((a,b) => b.consumed-a.consumed)[0];
+  const critical = allProducts.filter(p => p.stock <= p.minStock && p.minStock > 0).length;
+
+  document.getElementById('kpi-total').textContent = total.toLocaleString('de-DE');
+  document.getElementById('kpi-total-d').textContent = currentPeriod + ' Tage gesamt';
+  document.getElementById('kpi-avg').textContent = avg.toFixed(1);
+  document.getElementById('kpi-avg-d').textContent = 'Ø Einheiten/Tag';
+  document.getElementById('kpi-top').textContent = top ? (top.emoji + ' ' + top.name) : '—';
+  document.getElementById('kpi-top-d').textContent = top ? top.consumed + ' Einheiten' : '—';
+  document.getElementById('kpi-critical').textContent = critical;
+  document.getElementById('kpi-critical-d').textContent = critical === 0 ? 'Alles im grünen Bereich ✓' : 'Produkte unter Mindestbestand';
+
+  // Order badge
+  fetch('/api/orders/pending', { headers: { Authorization: 'Bearer '+getToken() } })
+    .then(r => r.ok ? r.json() : [])
+    .then(d => { const badge = document.getElementById('order-badge'); badge.textContent = d.length||0; badge.style.display = d.length ? '' : 'none'; })
+    .catch(() => {});
+}
+
+/* ── CHART ── */
+function getChartColors() {
+  const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+  return {
+    grid: dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
+    text: dark ? '#7a7974' : '#6b6a66',
+    fill: dark ? 'rgba(226,0,26,0.15)' : 'rgba(226,0,26,0.08)',
+  };
+}
+
+function renderChart(dailyMap) {
+  // Generiere Datenpunkte für den Zeitraum
+  const labels = [];
+  const values = [];
+  const now = new Date();
+  
+  if (currentView === 'daily') {
+    for (let i = currentPeriod-1; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      const key = d.toISOString().slice(0,10);
+      labels.push(fmtShort(d));
+      values.push(dailyMap[key] || 0);
+    }
+  } else {
+    // Wöchentlich
+    const weeks = Math.ceil(currentPeriod / 7);
+    for (let w = weeks-1; w >= 0; w--) {
+      const wStart = new Date(now);
+      wStart.setDate(wStart.getDate() - (w+1)*7);
+      const wEnd = new Date(now);
+      wEnd.setDate(wEnd.getDate() - w*7);
+      let sum = 0;
+      for (const [key, val] of Object.entries(dailyMap)) {
+        const d = new Date(key);
+        if (d >= wStart && d < wEnd) sum += val;
+      }
+      labels.push('KW' + getWeekNumber(wEnd));
+      values.push(sum);
+    }
+  }
+
+  const colors = getChartColors();
+  const ctx = document.getElementById('consumption-chart').getContext('2d');
+  if (consumptionChart) consumptionChart.destroy();
+  consumptionChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Verbrauch',
+        data: values,
+        backgroundColor: 'rgba(226,0,26,0.7)',
+        borderColor: 'rgba(226,0,26,1)',
+        borderWidth: 0,
+        borderRadius: 4,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: document.documentElement.getAttribute('data-theme') === 'dark' ? '#1c1c1a' : '#1a1a1a',
+          titleColor: '#fff',
+          bodyColor: 'rgba(255,255,255,0.7)',
+          padding: 10,
+          callbacks: { label: ctx => ctx.parsed.y.toLocaleString('de-DE') + ' Einheiten' }
+        }
+      },
+      scales: {
+        x: { grid: { color: colors.grid }, ticks: { color: colors.text, font: { size: 11 } } },
+        y: { grid: { color: colors.grid }, ticks: { color: colors.text, font: { size: 11 } }, beginAtZero: true }
+      }
+    }
+  });
+}
+
+function getWeekNumber(d) {
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const dayNum = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  return Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
+}
+
+/* ── TOP PRODUCTS ── */
+function renderTopProducts(products) {
+  const top5 = [...products].sort((a,b) => b.consumed-a.consumed).slice(0,5);
+  const maxConsumed = top5[0]?.consumed || 1;
+  const rankClasses = ['gold','silver','bronze','',''];
+  const container = document.getElementById('top-products-list');
+  if (!top5.length) { container.innerHTML = '<div class="empty-state" style="padding:20px"><div class="empty-icon">📭</div><div class="empty-desc">Keine Daten</div></div>'; return; }
+  container.innerHTML = top5.map((p,i) => `
+    <div class="top-item" onclick="openDrawer('${p._id}')" style="cursor:pointer">
+      <div class="top-rank ${rankClasses[i]}">${i+1}</div>
+      <div class="top-emoji">${p.emoji}</div>
+      <div class="top-info">
+        <div class="top-name">${esc(p.name)}</div>
+        <div class="top-cat">${esc(p.category)}</div>
+      </div>
+      <div class="top-bar-wrap">
+        <div class="top-bar"><div class="top-bar-fill" style="width:${Math.round(p.consumed/maxConsumed*100)}%"></div></div>
+        <div class="top-val" style="color:var(--color-text-muted)">${p.consumed.toLocaleString('de-DE')}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+/* ── TABLE ── */
+function renderTable(products) {
+  const tbody = document.getElementById('analytics-tbody');
+  document.getElementById('table-meta').textContent = products.length + ' Artikel';
+  if (!products.length) {
+    tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-title">Keine Treffer</div><div class="empty-desc">Filter anpassen oder Suche ändern.</div></div></td></tr>';
+    return;
+  }
+  const maxConsumed = Math.max(...products.map(p => p.consumed), 1);
+  tbody.innerHTML = products.map(p => {
+    const pct = Math.round(p.consumed / maxConsumed * 100);
+    const fillClass = pct > 66 ? 'fill-high' : pct > 33 ? 'fill-mid' : 'fill-ok';
+    const stock = p.stock, min = p.minStock;
+    const statusClass = stock <= min ? 'badge-critical' : stock <= min*1.5 ? 'badge-low' : 'badge-ok';
+    const statusLabel = stock <= min ? 'Kritisch' : stock <= min*1.5 ? 'Niedrig' : 'OK';
+    const deltaHtml = p.avgDaily > 0
+      ? `<span class="delta-down">▼ ${p.avgDaily.toFixed(1)}/Tag</span>`
+      : '<span class="delta-flat">—</span>';
+    const daysHtml = p.daysLeft !== null
+      ? `<span style="font-size:11px;color:${p.daysLeft<7?'var(--color-error)':p.daysLeft<14?'var(--color-warning)':'var(--color-text-muted)'}">${p.daysLeft}d Reichweite</span>`
+      : '';
+    return `
+    <tr onclick="openDrawer('${p._id}')" style="cursor:pointer">
+      <td><div class="product-cell"><div class="product-emoji">${p.emoji}</div><div><div class="product-name">${esc(p.name)}</div><div class="product-cat">${esc(p.category)}</div></div></div></td>
+      <td>${esc(p.category)}</td>
+      <td><strong>${p.consumed.toLocaleString('de-DE')}</strong> <span style="font-size:11px;color:var(--color-text-muted)">${p.unit}</span></td>
+      <td>${p.avgDaily.toFixed(2)}</td>
+      <td><div class="trend-cell"><div class="trend-bar-wrap"><div class="trend-bar"><div class="trend-fill ${fillClass}" style="width:${pct}%"></div></div></div><span style="font-size:11px;color:var(--color-text-muted)">${pct}%</span></div></td>
+      <td>${p.stock.toLocaleString('de-DE')} <span style="font-size:11px;color:var(--color-text-muted)">${p.unit}</span>${daysHtml ? '<br>'+daysHtml : ''}</td>
+      <td><span class="badge ${statusClass}"><span class="badge-dot"></span>${statusLabel}</span></td>
+      <td><button class="icon-btn" onclick="event.stopPropagation();openDrawer('${p._id}')" title="Details">→</button></td>
+    </tr>`;
+  }).join('');
+}
+
+/* ── DRAWER ── */
+function openDrawer(id) {
+  const p = allProducts.find(x => x._id === id);
+  if (!p) return;
+  document.getElementById('drawer-emoji').textContent = p.emoji;
+  document.getElementById('drawer-name').textContent = p.name;
+  document.getElementById('drawer-cat').textContent = p.category;
+  document.getElementById('d-consumed').textContent = p.consumed.toLocaleString('de-DE') + ' ' + p.unit;
+  document.getElementById('d-avg').textContent = p.avgDaily.toFixed(2) + ' ' + p.unit + '/Tag';
+  document.getElementById('d-stock').textContent = p.stock.toLocaleString('de-DE') + ' ' + p.unit;
+  document.getElementById('d-min').textContent = (p.minStock || '—') + (p.minStock ? ' ' + p.unit : '');
+  document.getElementById('d-days').textContent = p.daysLeft !== null ? p.daysLeft + ' Tage' : '—';
+
+  // Drawer chart: letzten 14 Tage Verbrauch aus logs
+  const dailyData = {};
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate()-i);
+    dailyData[d.toISOString().slice(0,10)] = 0;
+  }
+  (p.logs || []).forEach(log => {
+    const k = new Date(log.date).toISOString().slice(0,10);
+    if (k in dailyData) dailyData[k] += log.qty;
+  });
+  const dlabels = Object.keys(dailyData).map(k => fmtShort(k));
+  const dvalues = Object.values(dailyData);
+
+  const dctx = document.getElementById('drawer-chart').getContext('2d');
+  if (drawerChart) drawerChart.destroy();
+  const colors = getChartColors();
+  drawerChart = new Chart(dctx, {
+    type: 'line',
+    data: {
+      labels: dlabels,
+      datasets: [{
+        data: dvalues,
+        borderColor: 'rgba(226,0,26,0.9)',
+        backgroundColor: colors.fill,
+        borderWidth: 2,
+        pointRadius: 3,
+        pointHoverRadius: 5,
+        fill: true,
+        tension: 0.3,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1a1a1a', titleColor: '#fff', bodyColor: 'rgba(255,255,255,0.7)', callbacks: { label: ctx => ctx.parsed.y + ' ' + p.unit } } },
+      scales: {
+        x: { grid: { color: colors.grid }, ticks: { color: colors.text, font: { size: 10 }, maxTicksLimit: 7 } },
+        y: { grid: { color: colors.grid }, ticks: { color: colors.text, font: { size: 10 } }, beginAtZero: true }
+      }
+    }
+  });
+
+  // Letzte Logs
+  const logsContainer = document.getElementById('drawer-logs');
+  const recent = [...(p.logs||[])].sort((a,b) => new Date(b.date)-new Date(a.date)).slice(0,8);
+  logsContainer.innerHTML = recent.length
+    ? recent.map(l => `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:var(--color-surface-2);border-radius:var(--radius-md)"><span style="font-size:12px;color:var(--color-text-muted)">${fmtRelative(l.date)}</span><span style="font-size:12px;font-weight:700">−${l.qty} ${p.unit}</span></div>`).join('')
+    : '<div style="text-align:center;padding:20px;color:var(--color-text-muted);font-size:12px">Keine Einträge verfügbar</div>';
+
+  document.getElementById('detail-drawer').classList.add('open');
+}
+
+function closeDrawer() {
+  document.getElementById('detail-drawer').classList.remove('open');
+}
+
+/* ── PERIOD TABS ── */
+document.getElementById('period-tabs').addEventListener('click', e => {
+  const btn = e.target.closest('.filter-tab');
+  if (!btn) return;
+  document.querySelectorAll('#period-tabs .filter-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  currentPeriod = parseInt(btn.dataset.period);
+  loadData();
+});
+
+/* ── VIEW TABS ── */
+document.getElementById('view-daily').addEventListener('click', () => {
+  currentView = 'daily';
+  document.getElementById('view-daily').classList.add('active');
+  document.getElementById('view-weekly').classList.remove('active');
+  document.getElementById('chart-sub').textContent = 'Täglicher Verbrauch im gewählten Zeitraum';
+  loadData();
+});
+document.getElementById('view-weekly').addEventListener('click', () => {
+  currentView = 'weekly';
+  document.getElementById('view-weekly').classList.add('active');
+  document.getElementById('view-daily').classList.remove('active');
+  document.getElementById('chart-sub').textContent = 'Wöchentlicher Verbrauch im gewählten Zeitraum';
+  loadData();
+});
+
+/* ── EXPORT CSV ── */
+function exportCSV() {
+  const rows = [['Produkt','Kategorie','Verbrauch','Ø/Tag','Bestand','Mindestbestand','Status']];
+  filteredProducts.forEach(p => {
+    const status = p.stock <= p.minStock ? 'Kritisch' : p.stock <= p.minStock*1.5 ? 'Niedrig' : 'OK';
+    rows.push([p.name, p.category, p.consumed, p.avgDaily.toFixed(2), p.stock, p.minStock, status]);
+  });
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob(['\uFEFF'+csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'verbrauch_'+new Date().toISOString().slice(0,10)+'.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+  showToast('✅ CSV exportiert');
+}
+
+/* ── THEME TOGGLE ── */
+document.getElementById('theme-toggle').addEventListener('click', () => {
+  const html = document.documentElement;
+  const isDark = html.getAttribute('data-theme') === 'dark';
+  html.setAttribute('data-theme', isDark ? 'light' : 'dark');
+  localStorage.setItem('theme', isDark ? 'light' : 'dark');
+  // Re-render charts with new colors
+  if (allProducts.length) {
+    loadData();
+  }
+});
+
+/* ── KEYBOARD ── */
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
+document.addEventListener('click', e => {
+  const drawer = document.getElementById('detail-drawer');
+  if (drawer.classList.contains('open') && !drawer.contains(e.target) && !e.target.closest('tr') && !e.target.closest('.top-item')) closeDrawer();
+});
+
+/* ── TELEGRAM ── */
+async function sendTelegramReport() {
+  showToast('📱 Telegram-Bericht wird gesendet...');
+  try { await api('/api/reports/telegram','POST'); showToast('✅ Bericht gesendet!'); }
+  catch(e) { showToast('⚠️ ' + e.message); }
+}
+
+/* ── TOAST ── */
+function showToast(msg) {
+  const wrap = document.getElementById('toast-wrap');
+  const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg;
+  wrap.appendChild(t);
+  setTimeout(() => { t.style.opacity='0'; t.style.transition='opacity 0.3s'; setTimeout(() => t.remove(), 300); }, 2500);
+}
+
+/* ── HELPER ── */
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+/* ── BOOT ── */
+(function init() {
+  // Theme
+  const saved = localStorage.getItem('theme');
+  if (saved) document.documentElement.setAttribute('data-theme', saved);
+
+  // User info
+  const user = getUser();
+  if (!user) { window.location.href = '/index.html'; return; }
+  const av = document.getElementById('user-avatar');
+  if (av) av.textContent = (user.name||'A')[0].toUpperCase();
+  document.getElementById('user-name-display').textContent = user.name || user.username || '—';
+  document.getElementById('user-role-display').textContent = user.role || '—';
+
+  // Date
+  document.getElementById('topbar-date').textContent = new Date().toLocaleDateString('de-DE', { weekday:'long', day:'2-digit', month:'long', year:'numeric' });
+
+  loadData();
+})();
+</script>
+</body>
+</html>

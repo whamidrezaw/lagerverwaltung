@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="de" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EDEKA Lagerverwaltung — Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/shared.css">
+
+  <style>
+  /* ══════════════════════════════════════════════════
+     dashboard.html — Seiten-spezifische Stile
+     Nur was NICHT in shared.css steht
+  ══════════════════════════════════════════════════ */
+
+  /* ── FILTER TABS ──────────────────────────────── */
+  .filter-tabs {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  .filter-tab {
+    padding: 5px 12px;
+    border-radius: var(--radius-full);
+    font-size: 12px;
+    font-weight: 500;
+    border: 1px solid var(--color-border);
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: all var(--transition-interactive);
+    background: transparent;
+  }
+  .filter-tab:hover {
+    background: var(--color-surface-offset);
+    color: var(--color-text);
+  }
+  .filter-tab.active {
+    background: var(--edeka-dark);
+    color: #fff;
+    border-color: var(--edeka-dark);
+  }
+  [data-theme="dark"] .filter-tab.active {
+    background: var(--edeka-yellow);
+    color: var(--edeka-dark);
+    border-color: var(--edeka-yellow);
+  }
+
+  /* ── ADD PANEL ────────────────────────────────── */
+  .add-panel {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 16px 18px;
+    margin-bottom: 14px;
+    box-shadow: var(--shadow-sm);
+    display: none;
+  }
+  .add-panel.open { display: block; }
+  .add-panel-title { font-size: 13px; font-weight: 600; margin-bottom: 12px; }
+  .add-form {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    align-items: start;
+  }
+  .add-form .full-row { grid-column: 1 / -1; }
+
+  /* ── SNAP MODAL ───────────────────────────────── */
+  .snap-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 340px;
+    overflow-y: auto;
+  }
+  .snap-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: var(--color-surface-offset);
+    border-radius: var(--radius-md);
+  }
+  .snap-left { display: flex; align-items: center; gap: 10px; }
+  .snap-right { display: flex; gap: 16px; align-items: center; }
+  .snap-stat { text-align: right; }
+  .snap-stat-label { font-size: 10px; color: var(--color-text-muted); }
+  .snap-stat-val   { font-size: 13px; font-weight: 700; }
+  .snap-change     { font-size: 12px; font-weight: 700; min-width: 40px; text-align: right; }
+
+  /* ── EDIT / CONFIRM MODALS ────────────────────── */
+  .modal-form-grid-2 {
+    display: grid;
+    grid-template-columns: 70px 1fr;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .modal-form-grid-equal {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  /* ── ADMIN PANEL ──────────────────────────────── */
+  .admin-panel-wrap {
+    display: none;
+    margin: 0 0 20px;
+  }
+  .admin-panel-wrap.open { display: block; }
+  .admin-actions {
+    padding: 20px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+
+  /* ── RESPONSIVE ───────────────────────────────── */
+  @media (max-width: 600px) {
+    .add-form { grid-template-columns: 1fr 1fr; }
+    th:nth-child(4), td:nth-child(4),
+    th:nth-child(5), td:nth-child(5) { display: none; }
+    .admin-actions { grid-template-columns: 1fr; }
+  }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════
+     SIDEBAR
+══════════════════════════════════════════════════ -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <div class="sidebar-logo-mark">
+      <svg viewBox="0 0 36 36" width="36" height="36" fill="none" aria-label="EDEKA Logo">
+        <rect width="36" height="36" rx="6" fill="#f2c300"/>
+        <text x="18" y="25" text-anchor="middle" font-size="18" font-family="Inter,sans-serif" fill="#1a1a1a">🛒</text>
+      </svg>
+    </div>
+    <div class="sidebar-logo-text">
+      <div class="sidebar-app-name">EDEKA Lager</div>
+      <div class="sidebar-app-sub">Wir lieben Lebensmittel</div>
+    </div>
+  </div>
+
+  <div class="nav-section-title">Hauptmenü</div>
+  <a class="nav-item active" href="/dashboard.html" aria-current="page">
+    <span class="nav-icon">📦</span> Bestandsübersicht
+  </a>
+  <a class="nav-item" href="/analytics.html">
+    <span class="nav-icon">📊</span> Verbrauchsanalyse
+  </a>
+  <a class="nav-item" href="/orders.html">
+    <span class="nav-icon">🛒</span> Bestellvorschläge
+    <span class="nav-badge" id="order-badge" style="display:none">0</span>
+  </a>
+  <a class="nav-item" href="/reports.html">
+    <span class="nav-icon">📅</span> Tagesberichte
+  </a>
+  <a class="nav-item" href="/users.html">
+    <span class="nav-icon">👥</span> Benutzerverwaltung
+  </a>
+
+  <div class="nav-section-title">Aktionen</div>
+  <button class="nav-item" onclick="openSnapModal()">
+    <span class="nav-icon">📸</span> Tages-Snapshot
+  </button>
+  <button class="nav-item" onclick="sendTelegramReport()">
+    <span class="nav-icon">📱</span> Telegram-Bericht
+  </button>
+  <button class="nav-item" id="nav-admin-btn" onclick="toggleAdminPanel()">
+    <span class="nav-icon">⚙️</span> Admin Panel
+  </button>
+
+  <div class="sidebar-footer">
+    <div class="user-card">
+      <div class="user-avatar" id="user-avatar">A</div>
+      <div class="user-info">
+        <div class="user-name" id="user-name-display">Administrator</div>
+        <div class="user-role" id="user-role-display">admin</div>
+      </div>
+      <button class="logout-btn" onclick="logout()" title="Abmelden" aria-label="Abmelden">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+</aside>
+
+<!-- Overlay برای موبایل -->
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+<!-- ══════════════════════════════════════════════════
+     MAIN AREA
+══════════════════════════════════════════════════ -->
+<div class="main-area">
+
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <button class="menu-toggle icon-btn" aria-label="Menü öffnen">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="3" y1="6" x2="21" y2="6"/>
+          <line x1="3" y1="12" x2="21" y2="12"/>
+          <line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+      <div class="topbar-title">Bestandsübersicht</div>
+      <div class="topbar-date" id="topbar-date">—</div>
+    </div>
+    <div class="topbar-right">
+      <div class="search-wrap">
+        <input
+          class="search-input"
+          type="search"
+          id="search-input"
+          placeholder="Produkt suchen…"
+          oninput="filterTable()"
+          aria-label="Produkt suchen"
+        >
+      </div>
+      <button class="btn btn-ghost" onclick="saveSnapshot()" title="Snapshot speichern">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+          <polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+        </svg>
+        Snapshot
+      </button>
+      <button class="btn btn-ghost" onclick="exportExcel()" title="Excel exportieren">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        Excel
+      </button>
+      <button class="btn btn-yellow" onclick="toggleAddPanel()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        Produkt
+      </button>
+      <button class="icon-btn" data-theme-toggle aria-label="Dunkel-Modus">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- CONTENT -->
+  <div class="content" id="page-content">
+
+    <!-- KPI CARDS -->
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-top">
+          <span class="kpi-label">Gesamt Kisten</span>
+          <div class="kpi-icon" style="background:#fff8e1">📦</div>
+        </div>
+        <div class="kpi-val" id="kpi-total">—</div>
+        <div class="kpi-delta" id="kpi-total-sub">Wird geladen…</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-top">
+          <span class="kpi-label">Verbrauch heute</span>
+          <div class="kpi-icon" style="background:#fce4ec">📉</div>
+        </div>
+        <div class="kpi-val" id="kpi-consumed" style="color:var(--color-error)">—</div>
+        <div class="kpi-delta">Kisten entnommen</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-top">
+          <span class="kpi-label">Niedrig / Kritisch</span>
+          <div class="kpi-icon" style="background:#fff3e0">⚠️</div>
+        </div>
+        <div class="kpi-val" id="kpi-low" style="color:var(--color-warning)">—</div>
+        <div class="kpi-delta">Artikel nachbestellen</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-top">
+          <span class="kpi-label">Artikel OK</span>
+          <div class="kpi-icon" style="background:#e8f5e9">✅</div>
+        </div>
+        <div class="kpi-val" id="kpi-ok" style="color:var(--color-success)">—</div>
+        <div class="kpi-delta">Ausreichend bestückt</div>
+      </div>
+    </div>
+
+    <!-- ADMIN PANEL (hidden by default) -->
+    <div class="admin-panel-wrap" id="admin-panel">
+      <div class="table-wrap">
+        <div class="table-header-row">
+          <span class="table-title">⚙️ Admin Panel — Datenverwaltung</span>
+        </div>
+        <div class="admin-actions">
+          <div class="kpi-card">
+            <div class="kpi-label" style="margin-bottom:8px">🔄 Bestände zurücksetzen</div>
+            <p style="font-size:12px;color:var(--color-text-muted);margin-bottom:12px">
+              currentStock aller Produkte auf 0 setzen
+            </p>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn btn-ghost" style="font-size:12px" onclick="adminResetStock(false)">
+                Nur currentStock
+              </button>
+              <button class="btn btn-ghost" style="font-size:12px;color:var(--color-error)" onclick="adminResetStock(true)">
+                + yesterdayStock
+              </button>
+            </div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label" style="margin-bottom:8px">🗑️ Logs löschen</div>
+            <p style="font-size:12px;color:var(--color-text-muted);margin-bottom:12px">
+              DailyLog-Einträge nach Zeitraum löschen
+            </p>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn btn-ghost" style="font-size:12px" onclick="adminResetLogs('daily')">Heute</button>
+              <button class="btn btn-ghost" style="font-size:12px" onclick="adminResetLogs('weekly')">7 Tage</button>
+              <button class="btn btn-ghost" style="font-size:12px" onclick="adminResetLogs('monthly')">30 Tage</button>
+              <button class="btn btn-ghost" style="font-size:12px;color:var(--color-error)" onclick="adminResetLogs('all')">Alle</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ADD PRODUCT PANEL -->
+    <div class="add-panel" id="add-panel">
+      <div class="add-panel-title">Neues Produkt hinzufügen</div>
+      <div class="add-form">
+        <div class="form-group">
+          <label class="form-label" for="new-emoji">Symbol</label>
+          <input class="form-ctrl" id="new-emoji" placeholder="🍓" maxlength="2">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="new-name">Produktname *</label>
+          <input class="form-ctrl" id="new-name" placeholder="z.B. Erdbeeren">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="new-cat">Kategorie</label>
+          <select class="form-ctrl" id="new-cat">
+            <option>Obst</option><option>Gemüse</option>
+            <option>Zitrusfrüchte</option><option>Exotisch</option>
+            <option>Beeren</option><option>Kräuter</option>
+            <option>Pilze</option><option>Bio</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="new-qty">Anfangsbestand</label>
+          <input class="form-ctrl" id="new-qty" type="number" min="0" placeholder="10">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="new-min">Mindestbestand</label>
+          <input class="form-ctrl" id="new-min" type="number" min="0" placeholder="5">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="new-unit">Einheit</label>
+          <select class="form-ctrl" id="new-unit">
+            <option value="Kiste">Kiste</option>
+            <option value="kg">kg</option>
+            <option value="Stück">Stück</option>
+            <option value="Bund">Bund</option>
+            <option value="Beutel">Beutel</option>
+          </select>
+        </div>
+        <div class="form-group full-row" style="display:flex;align-items:center;gap:20px;padding:6px 0">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:500">
+            <input type="checkbox" id="new-bio" style="width:16px;height:16px;accent-color:var(--color-success)">
+            🌱 Bio
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:500">
+            <input type="checkbox" id="new-loose" style="width:16px;height:16px;accent-color:var(--edeka-yellow)">
+            🪣 Lose
+          </label>
+        </div>
+        <div class="full-row" style="display:flex;justify-content:flex-end;margin-top:6px">
+          <button class="btn btn-primary" onclick="addProduct()" style="min-width:120px">
+            ✅ Speichern
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- FILTER TABS -->
+    <div class="filter-tabs" role="group" aria-label="Kategorie-Filter">
+      <button class="filter-tab active" onclick="setFilter('all',this)">Alle</button>
+      <button class="filter-tab" onclick="setFilter('Obst',this)">🍎 Obst</button>
+      <button class="filter-tab" onclick="setFilter('Gemüse',this)">🥦 Gemüse</button>
+      <button class="filter-tab" onclick="setFilter('Zitrusfrüchte',this)">🍊 Zitrus</button>
+      <button class="filter-tab" onclick="setFilter('Exotisch',this)">🥭 Exotisch</button>
+      <button class="filter-tab" onclick="setFilter('Beeren',this)">🫐 Beeren</button>
+      <button class="filter-tab" onclick="setFilter('Kräuter',this)">🌿 Kräuter</button>
+      <button class="filter-tab" onclick="setFilter('Pilze',this)">🍄 Pilze</button>
+      <button class="filter-tab" onclick="setFilter('bio',this)">🌱 Bio</button>
+      <button class="filter-tab" onclick="setFilter('loose',this)">🪣 Lose</button>
+    </div>
+
+    <!-- PRODUCT TABLE -->
+    <div class="table-wrap">
+      <div class="table-header-row">
+        <span class="table-title">Produktliste</span>
+        <span class="table-meta" id="table-meta">— Artikel</span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Produkt</th>
+            <th>Bestand</th>
+            <th>Gestern</th>
+            <th>Verbrauch</th>
+            <th>Verbrauchsrate</th>
+            <th>Status</th>
+            <th><span class="sr-only">Aktionen</span></th>
+          </tr>
+        </thead>
+        <tbody id="product-tbody"></tbody>
+      </table>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main-area -->
+
+
+<!-- ══════════════════════════════════════════════════
+     MODALS
+══════════════════════════════════════════════════ -->
+
+<!-- 1. SNAPSHOT MODAL -->
+<div class="modal-overlay" id="snap-modal" role="dialog" aria-modal="true" aria-labelledby="snap-modal-title"
+     onclick="if(event.target===this)closeSnapModal()">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title" id="snap-modal-title">📸 Tages-Snapshot — Verbrauchsübersicht</div>
+      <button class="modal-close" onclick="closeSnapModal()" aria-label="Schließen">✕</button>
+    </div>
+    <div class="snap-list" id="snap-list"></div>
+    <div style="display:flex;gap:10px;margin-top:20px">
+      <button class="btn btn-primary" style="flex:1" onclick="applyNewDay()">✅ Neuen Tag starten</button>
+      <button class="btn btn-ghost" onclick="closeSnapModal()">Abbrechen</button>
+    </div>
+  </div>
+</div>
+
+<!-- 2. CONFIRM DELETE MODAL -->
+<div class="modal-overlay" id="confirm-modal" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title"
+     onclick="if(event.target===this)closeConfirmModal()">
+  <div class="modal" style="max-width:360px;text-align:center">
+    <div style="font-size:40px;margin-bottom:12px" aria-hidden="true">🗑️</div>
+    <div class="modal-title" id="confirm-title" style="margin-bottom:8px">Produkt löschen?</div>
+    <p id="confirm-product-name" style="font-size:13px;color:var(--color-text-muted);margin-bottom:20px"></p>
+    <div style="display:flex;gap:10px;justify-content:center">
+      <button class="btn btn-ghost" onclick="closeConfirmModal()">Abbrechen</button>
+      <button class="btn btn-primary" onclick="runDelete()">Löschen</button>
+    </div>
+  </div>
+</div>
+
+<!-- 3. EDIT PRODUCT MODAL -->
+<div class="modal-overlay" id="edit-modal" role="dialog" aria-modal="true" aria-labelledby="edit-modal-title"
+     onclick="if(event.target===this)closeEditModal()">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-head">
+      <div class="modal-title" id="edit-modal-title">✏️ Produkt bearbeiten</div>
+      <button class="modal-close" onclick="closeEditModal()" aria-label="Schließen">✕</button>
+    </div>
+
+    <div class="modal-form-grid-2">
+      <div class="form-group">
+        <label class="form-label" for="edit-emoji">Emoji</label>
+        <input class="form-ctrl" id="edit-emoji" type="text" maxlength="4"
+               style="text-align:center;font-size:20px">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="edit-name">Name *</label>
+        <input class="form-ctrl" id="edit-name" type="text" placeholder="Produktname">
+      </div>
+    </div>
+
+    <div class="modal-form-grid-equal">
+      <div class="form-group">
+        <label class="form-label" for="edit-cat">Kategorie</label>
+        <select class="form-ctrl" id="edit-cat">
+          <option value="Obst">🍎 Obst</option>
+          <option value="Gemüse">🥦 Gemüse</option>
+          <option value="Zitrusfrüchte">🍋 Zitrusfrüchte</option>
+          <option value="Exotisch">🥭 Exotisch</option>
+          <option value="Beeren">🫐 Beeren</option>
+          <option value="Kräuter">🌿 Kräuter</option>
+          <option value="Pilze">🍄 Pilze</option>
+          <option value="Bio">🌱 Bio</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="edit-unit">Einheit</label>
+        <select class="form-ctrl" id="edit-unit">
+          <option value="Kiste">Kiste</option>
+          <option value="kg">kg</option>
+          <option value="Stück">Stück</option>
+          <option value="Bund">Bund</option>
+          <option value="Beutel">Beutel</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="modal-form-grid-equal">
+      <div class="form-group">
+        <label class="form-label" for="edit-min">Mindestbestand</label>
+        <input class="form-ctrl" id="edit-min" type="number" min="0" placeholder="5">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;padding-top:22px">
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+          <input type="checkbox" id="edit-bio" style="width:16px;height:16px;accent-color:var(--edeka-yellow)">
+          🌱 Bio-Produkt
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+          <input type="checkbox" id="edit-loose" style="width:16px;height:16px;accent-color:var(--edeka-yellow)">
+          🪣 Lose (ohne Verpackung)
+        </label>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px">
+      <button class="btn btn-ghost" onclick="closeEditModal()">Abbrechen</button>
+      <button class="btn btn-yellow" id="save-edit-btn" onclick="saveEditProduct()">💾 Speichern</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- TOAST CONTAINER -->
+<div class="toast-wrap" id="toast-wrap" aria-live="polite"></div>
+
+
+<!-- ══════════════════════════════════════════════════
+     SCRIPTS
+     shared.js lädt zuerst → api(), showToast(), animVal()
+     usw. sind danach global verfügbar
+══════════════════════════════════════════════════ -->
+<script src="/assets/shared.js"></script>
+<script>
+/* ────────────────────────────────────────────────
+   Dashboard — Seiten-spezifische Logik
+   Alle globalen Helfer kommen aus shared.js
+──────────────────────────────────────────────── */
+
+/* ── STATE ─────────────────────────────────────── */
+let products      = [];
+let currentFilter = 'all';
+let currentSearch = '';
+let _deleteId     = null;
+let _editId       = null;
+
+/* ── LOAD ─────────────────────────────────────── */
+async function loadProducts() {
+  showSkeleton();
+  try {
+    const data = await api('/api/products');
+    if (!data) return;
+    products = data.map(mapProduct);
+    render();
+  } catch (e) {
+    showToast('Fehler beim Laden: ' + e.message, 'err');
+  }
+}
+
+function mapProduct(p) {
+  return {
+    _id:      p._id,
+    emoji:    p.emoji       || '📦',
+    name:     p.name,
+    cat:      p.category,
+    qty:      p.currentStock   ?? 0,
+    yesterday:p.yesterdayStock ?? 0,
+    min:      p.minStock       ?? 0,
+    unit:     p.unit           || 'Kiste',
+    isBio:    !!p.isBio,
+    isLoose:  !!p.isLoose,
+  };
+}
+
+/* ── SKELETON ──────────────────────────────────── */
+function showSkeleton() {
+  document.getElementById('product-tbody').innerHTML =
+    Array(8).fill('').map(() => `
+      <tr>
+        <td><div class="skeleton" style="height:34px;width:140px"></div></td>
+        <td><div class="skeleton" style="height:26px;width:100px"></div></td>
+        <td><div class="skeleton" style="height:16px;width:50px"></div></td>
+        <td><div class="skeleton" style="height:16px;width:50px"></div></td>
+        <td><div class="skeleton" style="height:16px;width:80px"></div></td>
+        <td><div class="skeleton" style="height:22px;width:60px;border-radius:12px"></div></td>
+        <td></td>
+      </tr>`).join('');
+}
+
+/* ── RENDER ────────────────────────────────────── */
+function render() {
+  updateKPIs();
+  renderTable();
+}
+
+function updateKPIs() {
+  const total    = products.reduce((s, p) => s + p.qty, 0);
+  const consumed = products.reduce((s, p) => s + Math.max(0, p.yesterday - p.qty), 0);
+  const low      = products.filter(p => p.qty <= p.min).length;
+  const ok       = products.filter(p => p.qty >  p.min).length;
+
+  animVal('kpi-total',    total);
+  animVal('kpi-consumed', consumed);
+  animVal('kpi-low',      low);
+  animVal('kpi-ok',       ok);
+  document.getElementById('kpi-total-sub').textContent =
+    products.length + ' Artikel insgesamt';
+}
+
+function getStatus(qty, min) {
+  if (qty <= 0)   return { label: 'Kritisch', cls: 'badge-critical' };
+  if (qty <= min) return { label: 'Niedrig',  cls: 'badge-low' };
+  return               { label: 'OK',       cls: 'badge-ok'  };
+}
+
+function renderTable() {
+  const q   = currentSearch.toLowerCase();
+  const visible = products.filter(p => {
+    const matchCat =
+      currentFilter === 'all'
+      || (currentFilter === 'bio'   && p.isBio)
+      || (currentFilter === 'loose' && p.isLoose)
+      || (p.cat === currentFilter);
+    const matchSearch =
+      p.name.toLowerCase().includes(q) ||
+      p.cat.toLowerCase().includes(q);
+    return matchCat && matchSearch;
+  });
+
+  document.getElementById('table-meta').textContent = visible.length + ' Artikel';
+
+  if (visible.length === 0) {
+    document.getElementById('product-tbody').innerHTML = `
+      <tr><td colspan="7">
+        <div class="empty-state">
+          <div class="empty-icon">🔍</div>
+          <div class="empty-title">Keine Produkte gefunden</div>
+          <p class="empty-desc">Anderen Suchbegriff oder Filter versuchen.</p>
+        </div>
+      </td></tr>`;
+    return;
+  }
+
+  document.getElementById('product-tbody').innerHTML = visible.map(p => {
+    const consumed  = Math.max(0, p.yesterday - p.qty);
+    const rate      = p.yesterday > 0 ? Math.round(consumed / p.yesterday * 100) : 0;
+    const status    = getStatus(p.qty, p.min);
+    const fillCls   = rate >= 60 ? 'fill-high' : rate >= 30 ? 'fill-mid' : 'fill-ok';
+    const consumedTxt = consumed > 0
+      ? `<span style="color:var(--color-error);font-weight:700">▼ ${consumed}</span>`
+      : `<span style="color:var(--color-text-muted)">━ 0</span>`;
+
+    return `<tr>
+      <td>
+        <div class="product-cell">
+          <div class="product-emoji">${p.emoji}</div>
+          <div>
+            <div class="product-name">${p.name}</div>
+            <div class="product-cat">${p.cat}</div>
+          </div>
+        </div>
+      </td>
+      <td>
+        <div class="stepper">
+          <button class="step-btn minus" onclick="changeQty('${p._id}',-1)" aria-label="−1">−</button>
+          <span class="step-val" id="qty-${p._id}">${p.qty}</span>
+          <button class="step-btn plus"  onclick="changeQty('${p._id}',1)"  aria-label="+1">+</button>
+          <span class="step-unit">${p.unit}</span>
+        </div>
+      </td>
+      <td style="font-weight:600;font-variant-numeric:tabular-nums">${p.yesterday} ${p.unit}</td>
+      <td>${consumedTxt}</td>
+      <td>
+        <div class="cons-wrap">
+          <div class="cons-pct">${rate}%</div>
+          <div class="cons-bar">
+            <div class="cons-fill ${fillCls}" style="width:${Math.min(rate,100)}%"></div>
+          </div>
+        </div>
+      </td>
+      <td>
+        <span class="badge ${status.cls}">
+          <span class="badge-dot"></span>${status.label}
+        </span>
+      </td>
+      <td>
+        <div class="row-acts">
+          <button class="row-act" title="Bearbeiten" aria-label="Bearbeiten"
+                  onclick="openEditModal('${p._id}')">✏️</button>
+          <button class="row-act" title="Löschen" aria-label="Löschen"
+                  onclick="openConfirmModal('${p._id}')">🗑️</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+/* ── FILTER / SEARCH ───────────────────────────── */
+function filterTable() {
+  currentSearch = document.getElementById('search-input').value;
+  renderTable();
+}
+
+function setFilter(cat, el) {
+  currentFilter = cat;
+  document.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  renderTable();
+}
+
+/* ── STEPPER ───────────────────────────────────── */
+async function changeQty(id, delta) {
+  const p = products.find(p => p._id === id);
+  if (!p) return;
+  p.qty = Math.max(0, p.qty + delta);
+  const el = document.getElementById('qty-' + id);
+  if (el) el.textContent = p.qty;
+  updateKPIs();
+  try {
+    await api('/api/products/' + id + '/stock', 'PATCH', { currentStock: p.qty });
+    showToast((delta > 0 ? '+1 ' : '−1 ') + p.unit + ' ' + p.name, 'info', 1800);
+  } catch {
+    showToast('Speichern fehlgeschlagen', 'err');
+  }
+}
+
+/* ── ADD PRODUCT ───────────────────────────────── */
+function toggleAddPanel() {
+  document.getElementById('add-panel').classList.toggle('open');
+}
+
+async function addProduct() {
+  const name  = document.getElementById('new-name').value.trim();
+  if (!name)  { showToast('Bitte einen Produktnamen eingeben', 'err'); return; }
+
+  const payload = {
+    emoji:        document.getElementById('new-emoji').value.trim() || '📦',
+    name,
+    category:     document.getElementById('new-cat').value,
+    currentStock: parseInt(document.getElementById('new-qty').value) || 0,
+    minStock:     parseInt(document.getElementById('new-min').value) || 5,
+    unit:         document.getElementById('new-unit').value  || 'Kiste',
+    isBio:        document.getElementById('new-bio').checked,
+    isLoose:      document.getElementById('new-loose').checked,
+  };
+  payload.yesterdayStock = payload.currentStock; // Initialwert = Anfangsbestand
+
+  try {
+    const newP = await api('/api/products', 'POST', payload);
+    if (!newP) return;
+    products.push(mapProduct(newP));
+    // Reset form
+    ['new-name','new-qty','new-emoji','new-min'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+    document.getElementById('new-bio').checked   = false;
+    document.getElementById('new-loose').checked = false;
+    document.getElementById('add-panel').classList.remove('open');
+    render();
+    showToast('✅ ' + name + ' hinzugefügt', 'ok');
+  } catch (e) {
+    showToast('Fehler: ' + e.message, 'err');
+  }
+}
+
+/* ── DELETE PRODUCT ────────────────────────────── */
+function openConfirmModal(id) {
+  const p = products.find(p => p._id === id);
+  if (!p) return;
+  _deleteId = id;
+  document.getElementById('confirm-product-name').textContent =
+    (p.emoji || '📦') + ' ' + p.name;
+  document.getElementById('confirm-modal').classList.add('open');
+}
+
+function closeConfirmModal() {
+  document.getElementById('confirm-modal').classList.remove('open');
+  _deleteId = null;
+}
+
+async function runDelete() {
+  if (!_deleteId) return;
+  const id = _deleteId;
+  const p  = products.find(p => p._id === id);
+  closeConfirmModal();
+  try {
+    await api('/api/products/' + id, 'DELETE');
+    products = products.filter(p => p._id !== id);
+    render();
+    showToast((p?.name || 'Produkt') + ' entfernt', 'ok');
+  } catch {
+    showToast('Fehler beim Löschen', 'err');
+  }
+}
+
+/* ── EDIT PRODUCT ──────────────────────────────── */
+function openEditModal(id) {
+  const p = products.find(p => p._id === id);
+  if (!p) return;
+  _editId = id;
+  document.getElementById('edit-emoji').value   = p.emoji  || '📦';
+  document.getElementById('edit-name').value    = p.name;
+  document.getElementById('edit-cat').value     = p.cat;
+  document.getElementById('edit-unit').value    = p.unit   || 'Kiste';
+  document.getElementById('edit-min').value     = p.min    ?? 5;
+  document.getElementById('edit-bio').checked   = !!p.isBio;
+  document.getElementById('edit-loose').checked = !!p.isLoose;
+  document.getElementById('edit-modal').classList.add('open');
+}
+
+function closeEditModal() {
+  document.getElementById('edit-modal').classList.remove('open');
+  _editId = null;
+}
+
+async function saveEditProduct() {
+  const btn  = document.getElementById('save-edit-btn');
+  const name = document.getElementById('edit-name').value.trim();
+  if (!name) { showToast('Bitte einen Namen eingeben', 'err'); return; }
+
+  btn.disabled    = true;
+  btn.textContent = '…';
+  try {
+    const updated = await api('/api/products/' + _editId, 'PUT', {
+      emoji:    document.getElementById('edit-emoji').value.trim() || '📦',
+      name,
+      category: document.getElementById('edit-cat').value,
+      unit:     document.getElementById('edit-unit').value,
+      minStock: parseInt(document.getElementById('edit-min').value) || 5,
+      isBio:    document.getElementById('edit-bio').checked,
+      isLoose:  document.getElementById('edit-loose').checked,
+    });
+    if (!updated) return;
+    const idx = products.findIndex(p => p._id === _editId);
+    if (idx !== -1) {
+      products[idx] = {
+        ...products[idx],
+        emoji:   updated.emoji,
+        name:    updated.name,
+        cat:     updated.category,
+        unit:    updated.unit,
+        min:     updated.minStock,
+        isBio:   updated.isBio,
+        isLoose: updated.isLoose,
+      };
+    }
+    closeEditModal();
+    render();
+    showToast('✅ ' + name + ' gespeichert', 'ok');
+  } catch (e) {
+    showToast('Fehler: ' + e.message, 'err');
+  } finally {
+    btn.disabled    = false;
+    btn.textContent = '💾 Speichern';
+  }
+}
+
+/* ── SNAPSHOT MODAL ────────────────────────────── */
+function openSnapModal() {
+  document.getElementById('snap-list').innerHTML = products.map(p => {
+    const consumed  = Math.max(0, p.yesterday - p.qty);
+    const diffTxt   = consumed > 0 ? ('−' + consumed) : '0';
+    const diffColor = consumed > 0 ? 'var(--color-error)' : 'var(--color-text-muted)';
+    return `
+      <div class="snap-row">
+        <div class="snap-left">
+          <span style="font-size:18px">${p.emoji}</span>
+          <span style="font-weight:600;font-size:13px">${p.name}</span>
+        </div>
+        <div class="snap-right">
+          <div class="snap-stat">
+            <div class="snap-stat-label">Gestern</div>
+            <div class="snap-stat-val">${p.yesterday}</div>
+          </div>
+          <div class="snap-stat">
+            <div class="snap-stat-label">Jetzt</div>
+            <div class="snap-stat-val">${p.qty}</div>
+          </div>
+          <div class="snap-change" style="color:${diffColor}">${diffTxt}</div>
+        </div>
+      </div>`;
+  }).join('');
+  document.getElementById('snap-modal').classList.add('open');
+}
+
+function closeSnapModal() {
+  document.getElementById('snap-modal').classList.remove('open');
+}
+
+async function applyNewDay() {
+  try {
+    await api('/api/reports/new-day', 'POST');
+    await loadProducts();
+    closeSnapModal();
+    showToast('Neuer Tag gestartet ✅', 'ok');
+  } catch (e) {
+    showToast('Fehler: ' + e.message, 'err');
+  }
+}
+
+/* ── SNAPSHOT SPEICHERN (Topbar-Button) ─────────── */
+async function saveSnapshot() {
+  try {
+    await api('/api/products/snapshot', 'POST');
+    showToast('Snapshot gespeichert ✅', 'ok');
+  } catch (e) {
+    showToast('Fehler: ' + e.message, 'err');
+  }
+}
+
+/* ── EXCEL EXPORT ──────────────────────────────── */
+async function exportExcel() {
+  try {
+    showToast('⏳ Export wird vorbereitet…');
+    const today = new Date().toISOString().split('T')[0];
+    const res   = await fetch('/api/reports/export?type=excel&date=' + today, {
+      headers: { 'Authorization': 'Bearer ' + sessionStorage.getItem('token') }
+    });
+    if (!res.ok) { showToast('❌ Export fehlgeschlagen', 'err'); return; }
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = 'EDEKA_Lager_' + today + '.xlsx';
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('✅ Excel heruntergeladen', 'ok');
+  } catch (e) {
+    showToast('Fehler: ' + e.message, 'err');
+  }
+}
+
+/* ── ADMIN PANEL ───────────────────────────────── */
+function toggleAdminPanel() {
+  const panel = document.getElementById('admin-panel');
+  const btn   = document.getElementById('nav-admin-btn');
+  panel.classList.toggle('open');
+  btn.classList.toggle('active');
+}
+
+async function adminResetStock(includeYesterday) {
+  const label = includeYesterday ? 'currentStock + yesterdayStock' : 'currentStock';
+  if (!confirm('Sicher? ' + label + ' aller Produkte wird auf 0 gesetzt!')) return;
+  try {
+    const r = await api('/api/reports/reset-stock', 'POST', { includeYesterday });
+    showToast('✅ ' + r.message, 'ok');
+    loadProducts();
+  } catch (e) {
+    showToast('Fehler: ' + e.message, 'err');
+  }
+}
+
+async function adminResetLogs(scope) {
+  const labels = { daily:'heute', weekly:'letzte 7 Tage', monthly:'letzte 30 Tage', all:'ALLE Logs' };
+  if (!confirm('Logs löschen: ' + labels[scope] + '?')) return;
+  try {
+    const r = await api('/api/reports/reset-logs', 'POST', { scope });
+    showToast('✅ ' + r.message + ' (' + (r.deletedCount||0) + ' Einträge)', 'ok');
+  } catch (e) {
+    showToast('Fehler: ' + e.message, 'err');
+  }
+}
+
+/* ── KEYBOARD SHORTCUTS ────────────────────────── */
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    closeSnapModal();
+    closeConfirmModal();
+    closeEditModal();
+  }
+  // Ctrl+F → search focus
+  if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+    e.preventDefault();
+    document.getElementById('search-input').focus();
+  }
+});
+
+/* ── INIT ──────────────────────────────────────── */
+loadProducts();
+</script>
+</body>
+</html>
